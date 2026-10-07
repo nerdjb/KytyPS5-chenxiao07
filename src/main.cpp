@@ -1,4 +1,5 @@
 #include "common/assert.h"
+#include "common/archive.h"
 #include "common/common.h"
 #include "common/dateTime.h"
 #include "common/debug.h"
@@ -42,9 +43,9 @@ static std::string GetBuildString() {
 
 static void PrintUsage() {
 	::printf("%s\n", GetBuildString().c_str());
-	::printf("kyty_emulator --game <dir|elf> [options]\n\n");
+	::printf("kyty_emulator --game <dir|elf|zar> [options]\n\n");
 	::printf("Options:\n");
-	::printf("  --game <dir|elf>                     Game directory or ELF to load.\n");
+	::printf("  --game <dir|elf|zar>              Game directory, ELF, or ZArchive to load.\n");
 	::printf("  --game-patch <json>                  ETAHen cheat file.\n");
 	::printf("  --screen-width <num>                 Window width. Default: 1280.\n");
 	::printf("  --screen-height <num>                Window height. Default: 720.\n");
@@ -193,8 +194,17 @@ static bool ParseArgs(int argc, char* argv[], RunOptions& options, bool& show_he
 			}
 
 			value = Common::FixFilenameSlash(value);
-			if (Common::File::IsDirectoryExisting(value)) {
-				options.app0_dir = value;
+			const std::filesystem::path path = value;
+			if (Common::File::IsDirectoryExisting(path)) {
+				options.app0_dir = path;
+				options.elf      = "/app0/eboot.bin";
+			} else if (Common::IsSupportedArchive(path) && Common::File::IsFileExisting(path)) {
+				const auto root = Common::MakeArchivePath(path);
+				if (!Common::File::IsFileExisting(root / "eboot.bin")) {
+					::printf("Archive does not contain eboot.bin: %s\n", value.c_str());
+					return false;
+				}
+				options.app0_dir = root;
 				options.elf      = "/app0/eboot.bin";
 			} else if (Common::File::IsFileExisting(value)) {
 				options.app0_dir = Common::DirectoryWithoutFilename(value);
@@ -203,7 +213,7 @@ static bool ParseArgs(int argc, char* argv[], RunOptions& options, bool& show_he
 				}
 				options.elf = "/app0/" + Common::FilenameWithoutDirectory(value);
 			} else {
-				::printf("--game must point to an existing directory or ELF: %s\n", value.c_str());
+				::printf("--game must point to an existing directory, ELF, or archive: %s\n", value.c_str());
 				return false;
 			}
 		} else if (arg == "--game-patch") {

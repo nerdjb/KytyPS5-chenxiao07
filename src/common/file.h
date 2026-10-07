@@ -6,6 +6,7 @@
 #include "common/dateTime.h"
 
 #include <filesystem>
+#include <optional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,11 @@ public:
 	struct DirEntry {
 		std::string name;
 		bool        is_file;
+	};
+
+	struct Info {
+		bool     is_file;
+		uint64_t size;
 	};
 
 	File();

@@ -29,7 +29,9 @@
 // which it finds in tools/local/static-precompile by the program or the working directory): what
 // tools/local/static-precompile/precompile.py seeds writes, byte for byte, without Python and without a
 // Vulkan device.
+#include "common/archive.h"
 #include "common/emulatorConfig.h"
+#include "common/file.h"
 #include "common/logging/log.h"
 #include "common/subsystems.h"
 #include "common/threads.h"
@@ -130,8 +132,11 @@ int main(int argc, char* argv[]) {
 	Config::Load(config);
 	subsystems.Initialize<Log::Lifecycle>();
 	// The title the caches are named after.
+	if (Common::IsSupportedArchive(game)) {
+		game = Common::MakeArchivePath(game);
+	}
 	const auto param_json = game / "sce_sys" / "param.json";
-	if (!std::filesystem::is_regular_file(param_json)) {
+	if (!Common::File::IsFileExisting(param_json)) {
 		std::fprintf(stderr, "no %s\n", param_json.string().c_str());
 		return 1;
 	}
