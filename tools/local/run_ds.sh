@@ -57,11 +57,12 @@ export KYTY_RENDER_HEIGHT=${KYTY_RENDER_HEIGHT:-1080}
 # (prints KYTYGCBUDGET lines) instead of fixed startup values.
 export KYTY_GC_LIVE_BUDGET=1
 # KYTY_PIPELINE_FAST_BUILD=1: first compile of a new pipeline is unoptimized
-# (VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT), the optimized one is built on a worker: faster to
-# first draw. A driver crash was once seen on RDNA2 at startup compute-pipeline creation. The
-# 1080p+FAST_BUILD run was stable at 51.4 fps median (no crash); we now A/B the optimized-first
-# default (0) against it - set 1 to restore the fast first draw.
-export KYTY_PIPELINE_FAST_BUILD=${KYTY_PIPELINE_FAST_BUILD:-0}
+# (VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT), the optimized one is built on a worker, so the
+# render thread is not blocked and a scene that keeps meeting new pipelines keeps its frame rate.
+# A/B on this machine (Demon's Souls, 1080p, same route): p50 19.5 ms (~51 fps) with 1 vs 23.8 ms
+# (~43 fps) with 0. The old RDNA2 startup-crash note does not apply to the RX 9070 (RDNA4) here.
+# Set 0 to restore the optimized-first behaviour.
+export KYTY_PIPELINE_FAST_BUILD=${KYTY_PIPELINE_FAST_BUILD:-1}
 # Name every >100 ms stall in the log (frames, shader translations, pipeline creations, image
 # uploads): turns "the hang" into "what the hang was", for attribution and verification.
 export KYTY_HITCH_LOG_MS=${KYTY_HITCH_LOG_MS:-100}
@@ -71,6 +72,8 @@ export KYTY_HITCH_LOG_MS=${KYTY_HITCH_LOG_MS:-100}
 export KYTY_GC_BUDGET_CAP_MB=${KYTY_GC_BUDGET_CAP_MB:-10240}
 # GPU render thread pinned off CPU 0 (interrupt-heavy); physical cores 1-7.
 export KYTY_RENDER_CPUS=${KYTY_RENDER_CPUS:-"1,2,3,4,5,6,7"}
+# Capture a fresh frame-interval (flips) file every ~12 s so a session can be analysed afterwards.
+export KYTY_LIVE_FILE=${KYTY_LIVE_FILE:-/mnt/AI/tmp/opencode/flips-live.txt}
 BIN="${KYTY_BIN:-./_Build/linux-nt/kyty_emulator}"
 # A packaged copy has the executable next to the script.
 [ -x "$BIN" ] || [ ! -x "./kyty_emulator" ] || BIN="./kyty_emulator"
@@ -112,7 +115,6 @@ GAME="${KYTY_GAME:-}"
 RUN=("$BIN")
 if [ "${MANGO:-1}" = 1 ] && command -v mangohud >/dev/null 2>&1; then
   RUN=(mangohud "$BIN")
-  export MANGOHUD_CONFIG=${MANGOHUD_CONFIG:-fps,frame_timing,vram,ram,gpu_temp,cpu_temp,gpu_power,cpu_power}
 fi
 exec "${RUN[@]}" --game "$GAME" \
   --screen-width 1920 --screen-height 1080 --console-language 1 \
