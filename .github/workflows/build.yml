@@ -1,10 +1,12 @@
 name: Build KytyPS5 (Windows)
 
-# This fork's Windows build (Demon's Souls, see README.md): a manual run (Actions > Build KytyPS5 (Windows) >
-# Run workflow) or a pushed v* tag builds the release package and publishes it as a GitHub release, marked
-# latest (README.md links to the latest one). Pushes build nothing.
+# This fork's Windows build (Demon's Souls, see README.md): a push to any branch (every commit) or a
+# pushed v* tag builds the Windows package and, with the Linux one (.github/workflows/build-linux.yml),
+# publishes both zips into one GitHub release (latest; README.md links to it). A manual run (Actions >
+# Build KytyPS5 (Windows) > Run workflow) does the same.
 on:
   push:
+    branches: [ '**' ]
     tags: [ 'v*' ]
   workflow_dispatch:
 
@@ -146,15 +148,26 @@ jobs:
         shell: bash
         run: |
           (cd package && zip -qr "../$PACKAGE.zip" "$PACKAGE")
-          # A tag's own release, else a new tag named after the package at this commit.
+          # One release for this build, shared with the Linux package: the pushed v* tag, or (a push to a
+          # branch) a tag named after the Windows package at this commit. The Linux workflow
+          # (.github/workflows/build-linux.yml) uploads its zip into the same release.
           tag="$GITHUB_REF_NAME"
           [ "$GITHUB_REF_TYPE" = tag ] || tag="$PACKAGE"
           notes="Windows x64 build of ${GITHUB_SHA::8} for Demon's Souls (PPSA01341, versions 01.007.000 and 01.005.000). Unzip it and double-click run.cmd or launcher.cmd; the README.md inside explains the rest."
           # The notes of this build (what changed, the per-PC shader caches, frame rates), when the commit has them.
           if [ -s notes/docs/RELEASE-NOTES.md ]; then notes="$(printf '%s\n\n%s' "$notes" "$(cat notes/docs/RELEASE-NOTES.md)")"; fi
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release upload "$tag" "$PACKAGE.zip" --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$tag" "$PACKAGE.zip" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "$PACKAGE" --notes "$notes" --latest
-          fi
+          # The Windows and Linux workflows run in parallel and both publish into this one release: whichever
+          # arrives first creates it, the other uploads into it (retrying until the release is visible).
+          ok=0
+          for attempt in 1 2 3 4 5 6; do
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              gh release upload "$tag" "$PACKAGE.zip" --clobber --repo "$GITHUB_REPOSITORY" && { ok=1; break; }
+            elif gh release create "$tag" "$PACKAGE.zip" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+                   --title "$tag" --notes "$notes" --latest; then
+              ok=1; break
+            else
+              gh release upload "$tag" "$PACKAGE.zip" --clobber --repo "$GITHUB_REPOSITORY" && { ok=1; break; }
+            fi
+            sleep 5
+          done
+          [ "$ok" = 1 ] || { echo "could not publish $PACKAGE.zip to release $tag" >&2; exit 1; }
