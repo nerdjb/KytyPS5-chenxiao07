@@ -82,6 +82,9 @@ jobs:
           New-Item -ItemType Directory -Force $out | Out-Null
           Copy-Item "$build\kyty_emulator.exe", "$build\kyty_shader_precompile.exe", "$build\libwinpthread-1.dll",
             run-windows.ps1, precompile-windows.ps1, launcher.ps1, launcher.cmd, LICENSE $out
+          # The trophy unlock sound, next to the exe (the emulator finds it with SDL_GetBasePath).
+          New-Item -ItemType Directory -Force "$out\assets\sounds" | Out-Null
+          Copy-Item "$build\assets\sounds\trophy-unlock.wav" "$out\assets\sounds\"
           Copy-Item LICENSES $out -Recurse
           Copy-Item run-windows.json "$out\launch.json"
           Copy-Item docs\PORTABLE-README.md "$out\README.md"

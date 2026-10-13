@@ -123,6 +123,10 @@ bool ReadbackLinearImagesEnabled() {
 	return g_config->readback_linear_images;
 }
 
+bool TrophyEnabled() {
+	return g_config->trophy_enabled;
+}
+
 bool PlayGoHackEnabled() {
 	return g_config->playgo_hack_enabled;
 }

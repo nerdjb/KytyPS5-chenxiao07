@@ -13,4 +13,5 @@ _PipelineCache/
 # Runtime data (saves, dev logs)
 _DevLog/
 _SaveData/
+_Trophies/
 __pycache__/

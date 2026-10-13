@@ -67,6 +67,9 @@ jobs:
           out="_Build/package/$PACKAGE"
           mkdir -p "$out/tools/local/static-precompile"
           cp "$build/kyty_emulator" "$build/kyty_shader_precompile" "$out"/
+          # The trophy unlock sound, next to the exe (the emulator finds it with SDL_GetBasePath).
+          mkdir -p "$out/assets/sounds"
+          cp "$build/assets/sounds/trophy-unlock.wav" "$out/assets/sounds/"
           cp tools/local/run_ds.sh "$out"/
           cp LICENSE "$out"/
           cp -r LICENSES "$out"/
