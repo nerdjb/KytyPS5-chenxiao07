@@ -49,6 +49,26 @@ export KYTY_SHADER_WARMUP_THREADS=16
 export KYTY_READBACK_QUEUE=1
 export KYTY_TABLE_XPR=2
 export KYTY_TABLE_DISPATCH=1
+# The game renders 2560x1440 internally and downsamples into the 1080p window. Rendering at the
+# output resolution instead cuts GPU pixel work ~1.8x with no visible change (the window shows 1080p
+# either way). 900 = 1600x900 -> 1080p for more fps; 1440 restores the original behavior.
+export KYTY_RENDER_HEIGHT=${KYTY_RENDER_HEIGHT:-1080}
+# Live VRAM-budget GC: texture/buffer collection thresholds follow the current device-memory budget
+# (prints KYTYGCBUDGET lines) instead of fixed startup values.
+export KYTY_GC_LIVE_BUDGET=1
+# KYTY_PIPELINE_FAST_BUILD=1: first compile of a new pipeline is unoptimized
+# (VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT), the optimized one is built on a worker: faster to
+# first draw. A driver crash was once seen on RDNA2 at startup compute-pipeline creation. The
+# 1080p+FAST_BUILD run was stable at 51.4 fps median (no crash); we now A/B the optimized-first
+# default (0) against it - set 1 to restore the fast first draw.
+export KYTY_PIPELINE_FAST_BUILD=${KYTY_PIPELINE_FAST_BUILD:-0}
+# Name every >100 ms stall in the log (frames, shader translations, pipeline creations, image
+# uploads): turns "the hang" into "what the hang was", for attribution and verification.
+export KYTY_HITCH_LOG_MS=${KYTY_HITCH_LOG_MS:-100}
+# Cap the live GC budget at 10 GiB so texture/buffer collection starts earlier and keeps the
+# resident set below the VRAM cap with room to absorb level-load bursts (softens the evict/upload
+# storms that froze frames at ~12.7 GB of a ~12-14 GB budget). 0 = uncapped.
+export KYTY_GC_BUDGET_CAP_MB=${KYTY_GC_BUDGET_CAP_MB:-10240}
 # GPU render thread pinned off CPU 0 (interrupt-heavy); physical cores 1-7.
 export KYTY_RENDER_CPUS=${KYTY_RENDER_CPUS:-"1,2,3,4,5,6,7"}
 BIN="${KYTY_BIN:-./_Build/linux-nt/kyty_emulator}"
