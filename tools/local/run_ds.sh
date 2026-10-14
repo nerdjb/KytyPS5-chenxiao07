@@ -56,13 +56,13 @@ export KYTY_RENDER_HEIGHT=${KYTY_RENDER_HEIGHT:-1080}
 # Live VRAM-budget GC: texture/buffer collection thresholds follow the current device-memory budget
 # (prints KYTYGCBUDGET lines) instead of fixed startup values.
 export KYTY_GC_LIVE_BUDGET=1
-# KYTY_PIPELINE_FAST_BUILD=1: first compile of a new pipeline is unoptimized
-# (VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT), the optimized one is built on a worker, so the
-# render thread is not blocked and a scene that keeps meeting new pipelines keeps its frame rate.
-# A/B on this machine (Demon's Souls, 1080p, same route): p50 19.5 ms (~51 fps) with 1 vs 23.8 ms
-# (~43 fps) with 0. The old RDNA2 startup-crash note does not apply to the RX 9070 (RDNA4) here.
-# Set 0 to restore the optimized-first behaviour.
-export KYTY_PIPELINE_FAST_BUILD=${KYTY_PIPELINE_FAST_BUILD:-1}
+# KYTY_PIPELINE_FAST_BUILD: 1 = a new pipeline's first build is unoptimized
+# (VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT) and the optimized one is built on a worker, so the
+# render thread is not blocked; 0 = optimized before its first use (the render thread waits at the
+# first meeting). 1 had the better median here (p50 19.5 ms / ~51 fps vs 23.8 ms / ~43 fps, same
+# route) but its captures also held a ~7.75 s freeze in the heavy shader phase; 0 avoids the freeze,
+# which matters more for play, so 0 is the default. Set 1 to trade the freeze for the median.
+export KYTY_PIPELINE_FAST_BUILD=${KYTY_PIPELINE_FAST_BUILD:-0}
 # Name every >100 ms stall in the log (frames, shader translations, pipeline creations, image
 # uploads): turns "the hang" into "what the hang was", for attribution and verification.
 export KYTY_HITCH_LOG_MS=${KYTY_HITCH_LOG_MS:-100}
