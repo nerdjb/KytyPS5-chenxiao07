@@ -93,6 +93,8 @@ BIN="${KYTY_BIN:-./_Build/linux-nt/kyty_emulator}"
     sleep 1
   done
 ) > /mnt/AI/tmp/opencode/monitor9.log 2>&1 &
+MON_PID=$!
+FLIP_PID=""
 if [ -n "$KYTY_LIVE_FILE" ]; then
   mkdir -p /mnt/AI/tmp/opencode/flips
   printf 'id 0\n' > "$KYTY_LIVE_FILE"
@@ -105,6 +107,7 @@ if [ -n "$KYTY_LIVE_FILE" ]; then
       sleep 12
     done
   ) &
+  FLIP_PID=$!
 fi
 # Mailbox = vblank-aligned, no tearing, low latency (smooth). Override with PRESENT_MODE=Fifo|Immediate.
 # MANGO=1 (default): MangoHud FPS/CPU/GPU overlay; MANGO=0 disables it.
@@ -116,7 +119,25 @@ RUN=("$BIN")
 if [ "${MANGO:-1}" = 1 ] && command -v mangohud >/dev/null 2>&1; then
   RUN=(mangohud "$BIN")
 fi
-exec "${RUN[@]}" --game "$GAME" \
+# The helper loops above must die with the emulator: without this, every launch leaks one monitor and
+# one flips writer that keep rewriting the same monitor9.log / flips-live.txt (and accumulate). No
+# exec, so the trap can run.
+cleanup() {
+  [ -z "$MON_PID" ] || kill "$MON_PID" 2>/dev/null
+  [ -z "$FLIP_PID" ] || kill "$FLIP_PID" 2>/dev/null
+  return 0
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+# The emulator's diagnostics go to stdout (KYTY_HITCH_LOG_MS stall lines, [Trophy] load/unlock,
+# KYTYGCBUDGET, errors) and a terminal scrolls them away. Keep a file per session plus a stable
+# "last" symlink, so "check the log" after playing is possible (both writers fflush every line).
+KYTY_LOG="${KYTY_LOG:-/mnt/AI/tmp/opencode/emulator-$(date +%Y%m%d-%H%M%S).log}"
+mkdir -p "$(dirname "$KYTY_LOG")"
+ln -sfn "$KYTY_LOG" "$(dirname "$KYTY_LOG")/emulator-last.log"
+printf 'log: %s\n' "$KYTY_LOG"
+"${RUN[@]}" --game "$GAME" \
   --screen-width 1920 --screen-height 1080 --console-language 1 \
   --shader-validation false --shader-log-direction Silent --printf-direction Silent \
-  --vblank-frequency 60 --present-mode "${PRESENT_MODE:-Mailbox}" "$@"
+  --vblank-frequency 60 --present-mode "${PRESENT_MODE:-Mailbox}" "$@" 2>&1 | tee "$KYTY_LOG"
+exit "${PIPESTATUS[0]}"
